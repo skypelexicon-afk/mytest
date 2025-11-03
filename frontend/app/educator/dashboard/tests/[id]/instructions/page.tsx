@@ -4,66 +4,101 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, Clock, BookOpen, FileText, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 
-export default function InstructionsPage() {
+interface Test {
+  id: number;
+  name: string;
+  subject: string;
+  duration: number;
+  total_marks: number;
+  num_questions: number;
+  description?: string;
+  instructions: string;
+}
+
+export default function TestInstructionsPage() {
   const router = useRouter();
   const params = useParams();
-  const testId = params.id as string;
+  const testId = params.id;
+
+  const [test, setTest] = useState<Test | null>(null);
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [instructions, setInstructions] = useState('');
-  const [testName, setTestName] = useState('');
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    fetchTest();
+    fetchTestInstructions();
   }, [testId]);
 
-  const fetchTest = async () => {
+  const fetchTestInstructions = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/tests/${testId}`, {
+      const response = await axios.get(`/api/exam/test/${testId}/instructions`, {
         withCredentials: true,
       });
-      
+
       if (response.data.success) {
-        setTestName(response.data.data.name);
-        setInstructions(response.data.data.instructions || '');
+        setTest(response.data.data);
       }
     } catch (error: any) {
-      console.error('Error fetching test:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch test');
-      router.push('/educator/dashboard/tests');
+      console.error('Error fetching test instructions:', error);
+      toast.error(error.response?.data?.message || 'Failed to fetch test instructions');
+      router.push('/student/dashboard/tests');
     } finally {
       setLoading(false);
     }
   };
 
-  const saveInstructions = async () => {
+  const handleStartExam = async () => {
+    if (!agreed) {
+      toast.error('Please agree to the instructions before starting');
+      return;
+    }
+
     try {
-      setSaving(true);
-      const response = await axios.put(
-        `/api/tests/${testId}/instructions`,
-        { instructions },
-        { withCredentials: true }
-      );
+      setStarting(true);
       
-      if (response.data.success) {
-        toast.success('Instructions saved successfully!');
+      // Check if there's an ongoing session
+      const ongoingResponse = await axios.get(`/api/exam/test/${testId}/ongoing`, {
+        withCredentials: true,
+      });
+
+      if (ongoingResponse.data.success) {
+        // Resume existing session
+        toast.info('Resuming your exam...');
+        router.push(`/student/dashboard/tests/${testId}/attempt`);
+        return;
       }
     } catch (error: any) {
-      console.error('Error saving instructions:', error);
-      toast.error(error.response?.data?.message || 'Failed to save instructions');
-    } finally {
-      setSaving(false);
-    }
-  };
+      // No ongoing session, start new one
+      if (error.response?.status === 404) {
+        try {
+          const response = await axios.post(
+            '/api/exam/start',
+            { testId: parseInt(testId as string) },
+            { withCredentials: true }
+          );
 
-  const proceedToQuestions = () => {
-    router.push(`/educator/dashboard/tests/${testId}/questions`);
+          if (response.data.success) {
+            toast.success('Exam started successfully!');
+            router.push(`/student/dashboard/tests/${testId}/attempt`);
+          }
+        } catch (startError: any) {
+          console.error('Error starting exam:', startError);
+          toast.error(startError.response?.data?.message || 'Failed to start exam');
+        }
+      } else {
+        console.error('Error checking ongoing session:', error);
+        toast.error('Failed to start exam');
+      }
+    } finally {
+      setStarting(false);
+    }
   };
 
   if (loading) {
@@ -74,11 +109,15 @@ export default function InstructionsPage() {
     );
   }
 
+  if (!test) {
+    return null;
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
       <Button
         variant="ghost"
-        onClick={() => router.back()}
+        onClick={() => router.push('/student/dashboard/tests')}
         className="mb-6"
         data-testid="back-button"
       >
@@ -86,67 +125,88 @@ export default function InstructionsPage() {
         Back to Tests
       </Button>
 
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Test Instructions</CardTitle>
-          <CardDescription>
-            {testName} - Edit the instructions that will be shown to students before they start the test.
-          </CardDescription>
+          <CardTitle className="text-2xl" data-testid="test-title">{test.name}</CardTitle>
+          <CardDescription>{test.subject}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Textarea
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              rows={20}
-              className="font-mono text-sm"
-              placeholder="Enter test instructions in Markdown format..."
-              data-testid="instructions-input"
-            />
-            <p className="text-sm text-muted-foreground">
-              You can use Markdown formatting for headings, lists, bold text, etc.
-            </p>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+              <Clock className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm text-muted-foreground">Duration</p>
+                <p className="font-semibold">{test.duration} minutes</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm text-muted-foreground">Questions</p>
+                <p className="font-semibold">{test.num_questions}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+              <FileText className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm text-muted-foreground">Total Marks</p>
+                <p className="font-semibold">{test.total_marks}</p>
+              </div>
+            </div>
           </div>
+          {test.description && (
+            <p className="text-muted-foreground">{test.description}</p>
+          )}
+        </CardContent>
+      </Card>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-end">
-            <Button
-              variant="outline"
-              onClick={saveInstructions}
-              disabled={saving}
-              className="flex items-center gap-2"
-              data-testid="save-instructions"
-            >
-              <Save className="h-4 w-4" />
-              {saving ? 'Saving...' : 'Save Instructions'}
-            </Button>
-            <Button
-              onClick={proceedToQuestions}
-              data-testid="proceed-to-questions"
-            >
-              Proceed to Add Questions
-            </Button>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-yellow-500" />
+            Instructions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="prose prose-sm max-w-none dark:prose-invert" data-testid="test-instructions">
+            <ReactMarkdown>{test.instructions}</ReactMarkdown>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-lg">Preview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="prose max-w-none">
-            {instructions.split('\n').map((line, i) => {
-              if (line.startsWith('# ')) {
-                return <h1 key={i} className="text-2xl font-bold mt-4 mb-2">{line.slice(2)}</h1>;
-              } else if (line.startsWith('## ')) {
-                return <h2 key={i} className="text-xl font-bold mt-3 mb-2">{line.slice(3)}</h2>;
-              } else if (line.startsWith('   - ') || line.startsWith('- ')) {
-                return <li key={i} className="ml-6">{line.replace(/^\s*-\s*/, '')}</li>;
-              } else if (line.trim()) {
-                return <p key={i} className="mb-2">{line}</p>;
-              }
-              return <br key={i} />;
-            })}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-start space-x-3 mb-6">
+            <Checkbox
+              id="agree"
+              checked={agreed}
+              onCheckedChange={(checked) => setAgreed(checked as boolean)}
+              data-testid="agree-checkbox"
+            />
+            <label
+              htmlFor="agree"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              I have read and understood all the instructions. I am ready to begin the test.
+            </label>
+          </div>
+
+          <div className="flex gap-4">
+            <Button
+              variant="outline"
+              onClick={() => router.push('/student/dashboard/tests')}
+              disabled={starting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleStartExam}
+              disabled={!agreed || starting}
+              className="flex-1"
+              data-testid="start-exam-button"
+            >
+              {starting ? 'Starting...' : 'Start Exam'}
+            </Button>
           </div>
         </CardContent>
       </Card>

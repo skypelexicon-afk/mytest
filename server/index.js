@@ -23,6 +23,7 @@ import anncRouter from "./routes/genAnnouncementRoutes.js";
 import streakRouter from "./routes/streakRoutes.js";
 import testRouter from "./routes/testRoutes.js";
 import questionRouter from "./routes/questionRoutes.js";
+import examSessionRouter from "./routes/examSessionRoutes.js";
 
 
 dotenv.config();
@@ -99,6 +100,7 @@ app.use("/api/general-announcements", anncRouter);
 app.use("/api/streaks", streakRouter);
 app.use("/api/tests", testRouter);
 app.use("/api/questions", questionRouter);
+app.use("/api/exam", examSessionRouter);
 
 // app.listen(3000, () => {
 //   console.log("Server running on http://localhost:3000");

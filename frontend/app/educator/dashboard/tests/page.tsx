@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Clock, BookOpen, FileText, Edit, Trash2, Eye } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Clock, BookOpen, FileText, Play, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -17,66 +18,70 @@ interface Test {
   total_marks: number;
   num_questions: number;
   description?: string;
-  status: 'draft' | 'published' | 'archived';
   created_at: string;
 }
 
-export default function TestsPage() {
+interface Attempt {
+  session_id: number;
+  test_id: number;
+  test_name: string;
+  subject: string;
+  duration: number;
+  total_marks: number;
+  score: number;
+  status: string;
+  start_time: string;
+  end_time?: string;
+}
+
+export default function StudentTestsPage() {
   const router = useRouter();
-  const [tests, setTests] = useState<Test[]>([]);
+  const [availableTests, setAvailableTests] = useState<Test[]>([]);
+  const [myAttempts, setMyAttempts] = useState<Attempt[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchTests();
+    fetchData();
   }, []);
 
-  const fetchTests = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/tests/my-tests', {
-        withCredentials: true,
-      });
       
-      if (response.data.success) {
-        setTests(response.data.data);
+      // Fetch available tests and attempts in parallel
+      const [testsResponse, attemptsResponse] = await Promise.all([
+        axios.get('/api/exam/published-tests', { withCredentials: true }),
+        axios.get('/api/exam/my-attempts', { withCredentials: true })
+      ]);
+
+      if (testsResponse.data.success) {
+        setAvailableTests(testsResponse.data.data);
+      }
+
+      if (attemptsResponse.data.success) {
+        setMyAttempts(attemptsResponse.data.data);
       }
     } catch (error: any) {
-      console.error('Error fetching tests:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch tests');
+      console.error('Error fetching data:', error);
+      toast.error(error.response?.data?.message || 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteTest = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this test?')) return;
-
-    try {
-      const response = await axios.delete(`/api/tests/${id}`, {
-        withCredentials: true,
-      });
-      
-      if (response.data.success) {
-        toast.success('Test deleted successfully');
-        fetchTests();
-      }
-    } catch (error: any) {
-      console.error('Error deleting test:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete test');
-    }
+  const handleStartTest = (testId: number) => {
+    router.push(`/student/dashboard/tests/${testId}/instructions`);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return 'bg-gray-500';
-      case 'published':
-        return 'bg-green-500';
-      case 'archived':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
+  const handleViewResult = (sessionId: number) => {
+    router.push(`/student/dashboard/tests/result/${sessionId}`);
+  };
+
+  const getScoreColor = (score: number, totalMarks: number) => {
+    const percentage = (score / totalMarks) * 100;
+    if (percentage >= 75) return 'text-green-600';
+    if (percentage >= 50) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
   if (loading) {
@@ -89,111 +94,161 @@ export default function TestsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Test Portal</h1>
-          <p className="text-muted-foreground mt-2">Create and manage your tests</p>
-        </div>
-        <Button 
-          onClick={() => router.push('/educator/dashboard/tests/create')}
-          className="flex items-center gap-2"
-          data-testid="create-test-button"
-        >
-          <Plus className="h-4 w-4" />
-          Create New Test
-        </Button>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold" data-testid="student-tests-title">Test Portal</h1>
+        <p className="text-muted-foreground mt-2">Attempt tests and view your results</p>
       </div>
 
-      {tests.length === 0 ? (
-        <Card className="text-center py-12">
-          <CardContent>
-            <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-xl font-semibold mb-2">No tests yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Create your first test to get started with the exam portal
-            </p>
-            <Button onClick={() => router.push('/educator/dashboard/tests/create')}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Test
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tests.map((test) => (
-            <Card key={test.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start mb-2">
-                  <Badge className={getStatusColor(test.status)}>
-                    {test.status.charAt(0).toUpperCase() + test.status.slice(1)}
-                  </Badge>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => router.push(`/educator/dashboard/tests/${test.id}/questions`)}
-                      data-testid={`edit-test-${test.id}`}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteTest(test.id)}
-                      data-testid={`delete-test-${test.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-                <CardTitle className="text-xl">{test.name}</CardTitle>
-                <CardDescription>{test.subject}</CardDescription>
-              </CardHeader>
+      <Tabs defaultValue="available" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="available" data-testid="available-tests-tab">
+            Available Tests
+          </TabsTrigger>
+          <TabsTrigger value="attempts" data-testid="my-attempts-tab">
+            My Attempts
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="available" className="mt-6">
+          {availableTests.length === 0 ? (
+            <Card className="text-center py-12">
               <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{test.duration} minutes</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                    <span>{test.num_questions} questions</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span>{test.total_marks} marks</span>
-                  </div>
-                </div>
-                {test.description && (
-                  <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
-                    {test.description}
-                  </p>
-                )}
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => router.push(`/educator/dashboard/tests/${test.id}/instructions`)}
-                    data-testid={`edit-instructions-${test.id}`}
-                  >
-                    Instructions
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => router.push(`/educator/dashboard/tests/${test.id}/questions`)}
-                    data-testid={`manage-questions-${test.id}`}
-                  >
-                    Questions
-                  </Button>
-                </div>
+                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">No tests available</h3>
+                <p className="text-muted-foreground">
+                  There are no published tests at the moment. Check back later!
+                </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {availableTests.map((test) => (
+                <Card key={test.id} className="hover:shadow-lg transition-shadow" data-testid={`test-card-${test.id}`}>
+                  <CardHeader>
+                    <Badge className="w-fit mb-2 bg-blue-500">Available</Badge>
+                    <CardTitle className="text-xl">{test.name}</CardTitle>
+                    <CardDescription>{test.subject}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-sm mb-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>{test.duration} minutes</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        <span>{test.num_questions} questions</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span>{test.total_marks} marks</span>
+                      </div>
+                    </div>
+                    {test.description && (
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                        {test.description}
+                      </p>
+                    )}
+                    <Button
+                      className="w-full"
+                      onClick={() => handleStartTest(test.id)}
+                      data-testid={`start-test-${test.id}`}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Start Test
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="attempts" className="mt-6">
+          {myAttempts.length === 0 ? (
+            <Card className="text-center py-12">
+              <CardContent>
+                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">No attempts yet</h3>
+                <p className="text-muted-foreground">
+                  You haven't attempted any tests yet. Start your first test from the Available Tests tab!
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {myAttempts.map((attempt) => (
+                <Card key={attempt.session_id} className="hover:shadow-lg transition-shadow" data-testid={`attempt-card-${attempt.session_id}`}>
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold">{attempt.test_name}</h3>
+                          {attempt.status === 'completed' && (
+                            <Badge className="bg-green-500">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Completed
+                            </Badge>
+                          )}
+                          {attempt.status === 'in_progress' && (
+                            <Badge className="bg-yellow-500">
+                              In Progress
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{attempt.subject}</p>
+                        <div className="flex flex-wrap gap-4 mt-3 text-sm">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span>{attempt.duration} min</span>
+                          </div>
+                          {attempt.status === 'completed' && (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">Score:</span>
+                                <span className={`font-semibold ${getScoreColor(attempt.score, attempt.total_marks)}`}>
+                                  {attempt.score} / {attempt.total_marks}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">Percentage:</span>
+                                <span className="font-semibold">
+                                  {((attempt.score / attempt.total_marks) * 100).toFixed(2)}%
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Started: {new Date(attempt.start_time).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {attempt.status === 'completed' && (
+                          <Button
+                            onClick={() => handleViewResult(attempt.session_id)}
+                            data-testid={`view-result-${attempt.session_id}`}
+                          >
+                            View Result
+                          </Button>
+                        )}
+                        {attempt.status === 'in_progress' && (
+                          <Button
+                            onClick={() => router.push(`/student/dashboard/tests/${attempt.test_id}/attempt`)}
+                            data-testid={`resume-test-${attempt.session_id}`}
+                          >
+                            Resume Test
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
