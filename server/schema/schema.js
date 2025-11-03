@@ -16,6 +16,9 @@ import { One, sql } from "drizzle-orm";
 export const roles = pgEnum("role", ["super_admin", "educator", "student", "staff"]);
 export const contentTypeEnum = pgEnum("content_type", ["attachment", "video", "code_file"]);
 export const orderStatusEnum = pgEnum("order_status", ["pending", "processed", "canceled"]);
+export const testStatusEnum = pgEnum("test_status", ["draft", "published", "archived"]);
+export const questionTypeEnum = pgEnum("question_type", ["mcq", "multiple_correct", "true_false", "numerical"]);
+export const examStatusEnum = pgEnum("exam_status", ["in_progress", "submitted", "completed"]);
 
 // Users
 export const users = pgTable("users", {
@@ -285,6 +288,55 @@ export const streakHistory = pgTable("streak_history", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ==================== EXAM/TEST PORTAL TABLES ====================
+
+// Tests
+export const tests = pgTable("tests", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  subject: text("subject").notNull(),
+  duration: integer("duration").notNull(), // in minutes
+  total_marks: integer("total_marks").notNull(),
+  num_questions: integer("num_questions").notNull(),
+  description: text("description"),
+  instructions: text("instructions"), // Editable NTA-style instructions
+  status: testStatusEnum("status").notNull().default("draft"),
+  created_by: integer("created_by").notNull().references(() => users.id),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Questions
+export const questions = pgTable("questions", {
+  id: serial("id").primaryKey(),
+  test_id: integer("test_id").notNull().references(() => tests.id, { onDelete: "cascade" }),
+  question_text: text("question_text").notNull(),
+  question_type: questionTypeEnum("question_type").notNull(), // mcq, multiple_correct, true_false, numerical
+  options: jsonb("options"), // Array of options for MCQ/Multiple Correct/True-False
+  correct_answers: jsonb("correct_answers").notNull(), // Array for multiple correct, single value for others
+  marks: integer("marks").notNull().default(1),
+  negative_marks: doublePrecision("negative_marks").default(0),
+  explanation: text("explanation"), // Optional explanation for answer
+  order: integer("order").notNull().default(0),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Exam Sessions (for student attempts)
+export const examSessions = pgTable("exam_sessions", {
+  id: serial("id").primaryKey(),
+  test_id: integer("test_id").notNull().references(() => tests.id),
+  student_id: integer("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  answers: jsonb("answers"), // Store all answers as JSON
+  marked_for_review: jsonb("marked_for_review"), // Question IDs marked for review
+  start_time: timestamp("start_time").notNull().defaultNow(),
+  end_time: timestamp("end_time"),
+  score: doublePrecision("score"),
+  status: examStatusEnum("status").notNull().default("in_progress"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Relations ////////////////////////////////////////////////////////////////////////
 import { relations } from "drizzle-orm";
 
@@ -451,6 +503,34 @@ export const userBadgeRelations = relations(userBadges, ({ one }) => ({
 export const streakHistoryRelations = relations(streakHistory, ({ one }) => ({
   user: one(users, {
     fields: [streakHistory.user_id],
+    references: [users.id],
+  }),
+}));
+
+// Test Relations
+export const testRelations = relations(tests, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [tests.created_by],
+    references: [users.id],
+  }),
+  questions: many(questions),
+  examSessions: many(examSessions),
+}));
+
+export const questionRelations = relations(questions, ({ one }) => ({
+  test: one(tests, {
+    fields: [questions.test_id],
+    references: [tests.id],
+  }),
+}));
+
+export const examSessionRelations = relations(examSessions, ({ one }) => ({
+  test: one(tests, {
+    fields: [examSessions.test_id],
+    references: [tests.id],
+  }),
+  student: one(users, {
+    fields: [examSessions.student_id],
     references: [users.id],
   }),
 }));
