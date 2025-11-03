@@ -8,6 +8,7 @@ import {
   submitExam,
   getExamResult,
   getOngoingSession,
+  getSessionDetails,
 } from "../controllers/examSessionController.js";
 import auth from "../middlewares/auth.js";
 
@@ -27,6 +28,9 @@ router.get("/test/:testId/instructions", getTestInstructions);
 
 // Check for ongoing session
 router.get("/test/:testId/ongoing", getOngoingSession);
+
+// Get session details by session ID
+router.get("/session/:sessionId/details", getSessionDetails);
 
 // Start exam session
 router.post("/start", startExamSession);

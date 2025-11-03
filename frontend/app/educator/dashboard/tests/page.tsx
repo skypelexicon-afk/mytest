@@ -6,17 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Clock, BookOpen, FileText, Plus, Edit, Trash2, Eye } from 'lucide-react';
+import { Clock, BookOpen, FileText, Play, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -28,31 +18,46 @@ interface Test {
   total_marks: number;
   num_questions: number;
   description?: string;
-  status: string;
   created_at: string;
 }
 
+interface Attempt {
+  session_id: number;
+  test_id: number;
+  test_name: string;
+  subject: string;
+  duration: number;
+  total_marks: number;
+  score: number | null;
+  status: string;
+  start_time: string;
+  end_time: string | null;
+}
 
-export default function EducatorTestsPage() {
+export default function StudentTestsPage() {
   const router = useRouter();
-  const [tests, setTests] = useState<Test[]>([]);
+  const [publishedTests, setPublishedTests] = useState<Test[]>([]);
+  const [myAttempts, setMyAttempts] = useState<Attempt[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; testId: number | null }>({
-    open: false,
-    testId: null,
-  });
 
   useEffect(() => {
-    fetchTests();
+    fetchData();
   }, []);
 
-  const fetchTests = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/tests/my-tests', { withCredentials: true });
+      const [testsResponse, attemptsResponse] = await Promise.all([
+        axios.get('/api/exam/published-tests', { withCredentials: true }),
+        axios.get('/api/exam/my-attempts', { withCredentials: true }),
+      ]);
 
-      if (response.data.success) {
-        setTests(response.data.data);
+      if (testsResponse.data.success) {
+        setPublishedTests(testsResponse.data.data);
+      }
+
+      if (attemptsResponse.data.success) {
+        setMyAttempts(attemptsResponse.data.data);
       }
     } catch (error: any) {
       console.error('Error fetching tests:', error);
@@ -62,28 +67,31 @@ export default function EducatorTestsPage() {
     }
   };
 
-  const handleDeleteTest = async () => {
-    if (!deleteDialog.testId) return;
-
+  const handleStartTest = async (testId: number) => {
     try {
-      const response = await axios.delete(`/api/tests/${deleteDialog.testId}`, {
+      // Check for ongoing session
+      const ongoingResponse = await axios.get(`/api/exam/test/${testId}/ongoing`, {
         withCredentials: true,
       });
 
-      if (response.data.success) {
-        toast.success('Test deleted successfully');
-        fetchTests();
+      if (ongoingResponse.data.success && ongoingResponse.data.data) {
+        // Resume existing session
+        const sessionId = ongoingResponse.data.data.id;
+        router.push(`/student/dashboard/tests/${sessionId}/attempt`);
+      } else {
+        // Go to instructions page
+        router.push(`/student/dashboard/tests/${testId}/instructions`);
       }
     } catch (error: any) {
-      console.error('Error deleting test:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete test');
-    } finally {
-      setDeleteDialog({ open: false, testId: null });
+      console.error('Error checking test status:', error);
+      // If no ongoing session, go to instructions
+      router.push(`/student/dashboard/tests/${testId}/instructions`);
     }
   };
 
-  const draftTests = tests.filter((t) => t.status === 'draft');
-  const publishedTests = tests.filter((t) => t.status === 'published');
+  const handleViewResult = (sessionId: number) => {
+    router.push(`/student/dashboard/tests/${sessionId}/result`);
+  };
 
   if (loading) {
     return (
@@ -95,97 +103,31 @@ export default function EducatorTestsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="educator-tests-title">
-            My Tests
-          </h1>
-          <p className="text-muted-foreground mt-2">Create and manage your tests</p>
-        </div>
-        <Button
-          onClick={() => router.push('/educator/dashboard/tests/create')}
-          data-testid="create-test-button"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Test
-        </Button>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold" data-testid="student-tests-title">
+          Tests
+        </h1>
+        <p className="text-muted-foreground mt-2">Browse and attempt available tests</p>
       </div>
 
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="all" data-testid="all-tests-tab">
-            All Tests ({tests.length})
+      <Tabs defaultValue="available" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="available" data-testid="available-tests-tab">
+            Available Tests ({publishedTests.length})
           </TabsTrigger>
-          <TabsTrigger value="draft" data-testid="draft-tests-tab">
-            Draft ({draftTests.length})
-          </TabsTrigger>
-          <TabsTrigger value="published" data-testid="published-tests-tab">
-            Published ({publishedTests.length})
+          <TabsTrigger value="attempts" data-testid="my-attempts-tab">
+            My Attempts ({myAttempts.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="mt-6">
-          {tests.length === 0 ? (
-            <Card className="text-center py-12">
-              <CardContent>
-                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">No tests yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Start creating tests for your students
-                </p>
-                <Button onClick={() => router.push('/educator/dashboard/tests/create')}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Test
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {tests.map((test) => (
-                <TestCard
-                  key={test.id}
-                  test={test}
-                  onEdit={() => router.push(`/educator/dashboard/tests/${test.id}/questions`)}
-                  onDelete={() => setDeleteDialog({ open: true, testId: test.id })}
-                  onPreview={() => router.push(`/educator/dashboard/tests/${test.id}/attempt`)}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="draft" className="mt-6">
-          {draftTests.length === 0 ? (
-            <Card className="text-center py-12">
-              <CardContent>
-                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">No draft tests</h3>
-                <p className="text-muted-foreground">All your tests are published</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {draftTests.map((test) => (
-                <TestCard
-                  key={test.id}
-                  test={test}
-                  onEdit={() => router.push(`/educator/dashboard/tests/${test.id}/questions`)}
-                  onDelete={() => setDeleteDialog({ open: true, testId: test.id })}
-                  onPreview={() => router.push(`/educator/dashboard/tests/${test.id}/attempt`)}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="published" className="mt-6">
+        <TabsContent value="available" className="mt-6">
           {publishedTests.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">No published tests</h3>
+                <h3 className="text-xl font-semibold mb-2">No tests available</h3>
                 <p className="text-muted-foreground">
-                  Publish your draft tests to make them available to students
+                  There are no published tests at the moment. Check back later!
                 </p>
               </CardContent>
             </Card>
@@ -195,54 +137,53 @@ export default function EducatorTestsPage() {
                 <TestCard
                   key={test.id}
                   test={test}
-                  onEdit={() => router.push(`/educator/dashboard/tests/${test.id}/questions`)}
-                  onDelete={() => setDeleteDialog({ open: true, testId: test.id })}
-                  onPreview={() => router.push(`/educator/dashboard/tests/${test.id}/attempt`)}
+                  onStart={() => handleStartTest(test.id)}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="attempts" className="mt-6">
+          {myAttempts.length === 0 ? (
+            <Card className="text-center py-12">
+              <CardContent>
+                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">No attempts yet</h3>
+                <p className="text-muted-foreground">
+                  You haven't attempted any tests yet. Start with available tests!
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myAttempts.map((attempt) => (
+                <AttemptCard
+                  key={attempt.session_id}
+                  attempt={attempt}
+                  onViewResult={() => handleViewResult(attempt.session_id)}
+                  onResume={() => router.push(`/student/dashboard/tests/${attempt.session_id}/attempt`)}
                 />
               ))}
             </div>
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, testId: null })}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Test?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the test and all associated questions.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTest} className="bg-red-600 hover:bg-red-700">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
 
 interface TestCardProps {
   test: Test;
-  onEdit: () => void;
-  onDelete: () => void;
-  onPreview: () => void;
+  onStart: () => void;
 }
 
-function TestCard({ test, onEdit, onDelete, onPreview }: TestCardProps) {
+function TestCard({ test, onStart }: TestCardProps) {
   return (
     <Card className="hover:shadow-lg transition-shadow" data-testid={`test-card-${test.id}`}>
       <CardHeader>
         <div className="flex items-start justify-between">
-          <Badge
-            className={test.status === 'published' ? 'bg-green-500' : 'bg-yellow-500'}
-          >
-            {test.status === 'published' ? 'Published' : 'Draft'}
-          </Badge>
+          <Badge className="bg-green-500">Published</Badge>
         </div>
         <CardTitle className="text-xl mt-2">{test.name}</CardTitle>
         <CardDescription>{test.subject}</CardDescription>
@@ -267,35 +208,85 @@ function TestCard({ test, onEdit, onDelete, onPreview }: TestCardProps) {
             {test.description}
           </p>
         )}
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={onEdit}
-            data-testid={`edit-test-${test.id}`}
-          >
-            <Edit className="h-4 w-4 mr-1" />
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onPreview}
-            data-testid={`preview-test-${test.id}`}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onDelete}
-            className="text-red-600 hover:text-red-700"
-            data-testid={`delete-test-${test.id}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <Button
+          className="w-full"
+          onClick={onStart}
+          data-testid={`start-test-${test.id}`}
+        >
+          <Play className="h-4 w-4 mr-2" />
+          Start Test
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface AttemptCardProps {
+  attempt: Attempt;
+  onViewResult: () => void;
+  onResume: () => void;
+}
+
+function AttemptCard({ attempt, onViewResult, onResume }: AttemptCardProps) {
+  const isCompleted = attempt.status === 'completed';
+  const isInProgress = attempt.status === 'in_progress';
+  const percentage = attempt.score !== null ? ((attempt.score / attempt.total_marks) * 100).toFixed(1) : 0;
+
+  return (
+    <Card className="hover:shadow-lg transition-shadow" data-testid={`attempt-card-${attempt.session_id}`}>
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <Badge className={isCompleted ? 'bg-green-500' : isInProgress ? 'bg-yellow-500' : 'bg-gray-500'}>
+            {isCompleted ? 'Completed' : isInProgress ? 'In Progress' : attempt.status}
+          </Badge>
+          {isCompleted && attempt.score !== null && (
+            <Badge variant="outline" className="ml-2">
+              {percentage}%
+            </Badge>
+          )}
         </div>
+        <CardTitle className="text-xl mt-2">{attempt.test_name}</CardTitle>
+        <CardDescription>{attempt.subject}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2 text-sm mb-4">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <span>Started: {new Date(attempt.start_time).toLocaleDateString()}</span>
+          </div>
+          {isCompleted && attempt.score !== null && (
+            <>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>Score: {attempt.score} / {attempt.total_marks}</span>
+              </div>
+            </>
+          )}
+          {isInProgress && (
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-yellow-500" />
+              <span>Test in progress</span>
+            </div>
+          )}
+        </div>
+        {isCompleted ? (
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={onViewResult}
+            data-testid={`view-result-${attempt.session_id}`}
+          >
+            View Result
+          </Button>
+        ) : isInProgress ? (
+          <Button
+            className="w-full"
+            onClick={onResume}
+            data-testid={`resume-test-${attempt.session_id}`}
+          >
+            Resume Test
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );

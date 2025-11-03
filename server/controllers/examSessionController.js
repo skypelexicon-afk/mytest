@@ -530,6 +530,72 @@ export const getExamResult = async (req, res) => {
   }
 };
 
+// Get session details by session ID (for resume)
+export const getSessionDetails = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const studentId = req.user.id;
+
+    // Get session
+    const [session] = await db
+      .select()
+      .from(examSessions)
+      .where(eq(examSessions.id, parseInt(sessionId)));
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: "Session not found",
+      });
+    }
+
+    // Verify session belongs to student
+    if (session.student_id !== studentId) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    // Get test details
+    const [test] = await db
+      .select()
+      .from(tests)
+      .where(eq(tests.id, session.test_id));
+
+    // Get questions
+    const testQuestions = await db
+      .select({
+        id: questions.id,
+        question_text: questions.question_text,
+        question_type: questions.question_type,
+        options: questions.options,
+        marks: questions.marks,
+        negative_marks: questions.negative_marks,
+        order: questions.order,
+      })
+      .from(questions)
+      .where(eq(questions.test_id, session.test_id))
+      .orderBy(asc(questions.order));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        session: session,
+        test: test,
+        questions: testQuestions,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching session details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch session details",
+      error: error.message,
+    });
+  }
+};
+
 // Get ongoing session (to resume exam)
 export const getOngoingSession = async (req, res) => {
   try {
