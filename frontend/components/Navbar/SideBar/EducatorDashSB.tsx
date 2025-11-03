@@ -7,6 +7,7 @@ import { MdDashboard } from 'react-icons/md';
 import { FaPlusSquare } from 'react-icons/fa';
 import { FaBookOpen } from 'react-icons/fa';
 import { FaUserGraduate } from 'react-icons/fa';
+import { FaClipboardList } from 'react-icons/fa';
 
 export const EducatorDashboardSidebar = () => {
     const router = useRouter();
@@ -58,6 +59,17 @@ export const EducatorDashboardSidebar = () => {
                     >
                         <FaBookOpen size={20} className="inline mx-4" />
                         My Course
+                    </button>
+                </li>
+                <li className="border-b border-gray-300 text-medium md:text-base cursor-pointer">
+                    <button
+                        onClick={() =>
+                            router.push('/educator/dashboard/tests')
+                        }
+                        className="w-full text-left py-4 hover:bg-gray-200"
+                    >
+                        <FaClipboardList size={20} className="inline mx-4" />
+                        Tests
                     </button>
                 </li>
             </ul>

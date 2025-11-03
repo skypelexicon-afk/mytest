@@ -6,6 +6,7 @@ import { FaPhone } from 'react-icons/fa6';
 import { FaInfoCircle } from 'react-icons/fa';
 import { SiBookstack } from 'react-icons/si';
 import { SlBookOpen } from 'react-icons/sl';
+import { FaClipboardList } from 'react-icons/fa';
 
 export const StudentDashboardSidebar = () => {
     const router = useRouter();
@@ -58,6 +59,18 @@ export const StudentDashboardSidebar = () => {
                     >
                         <SiBookstack size={25} className="inline mx-4" />
                         All Courses
+                    </button>
+                </li>
+                <li //className="border-b border-gray-300 text-medium md:text-base cursor-pointer"
+                className="border-b border-yellow-900 text-medium md:text-base cursor-pointer"
+                >
+                    <button
+                        onClick={() => router.push('/student/dashboard/tests')}
+                        //className="w-full text-left py-4 hover:bg-gray-200"
+                         className="w-full text-left py-4 hover:bg-yellow-800 hover:text-yellow-200"
+                    >
+                        <FaClipboardList size={20} className="inline mx-4" />
+                        Tests
                     </button>
                 </li>
                 <li //className="border-b border-gray-300 text-medium md:text-base cursor-pointer"
