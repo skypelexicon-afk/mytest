@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, Plus, Trash2, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import { fetchApi } from '@/lib/doFetch';
 
 interface Question {
   id?: number;
@@ -51,16 +51,16 @@ export default function QuestionsPage() {
     try {
       setLoading(true);
       const [testRes, questionsRes] = await Promise.all([
-        axios.get(`/api/tests/${testId}`, { withCredentials: true }),
-        axios.get(`/api/questions/test/${testId}`, { withCredentials: true }),
+        fetchApi.get<{ success: boolean; data: any }>(`api/tests/${testId}`),
+        fetchApi.get<{ success: boolean; data: any[] }>(`api/questions/test/${testId}`),
       ]);
       
-      if (testRes.data.success) {
-        setTest(testRes.data.data);
+      if (testRes.success) {
+        setTest(testRes.data);
       }
       
-      if (questionsRes.data.success) {
-        const mappedQuestions = questionsRes.data.data.map((q: any) => ({
+      if (questionsRes.success) {
+        const mappedQuestions = questionsRes.data.map((q: any) => ({
           id: q.id,
           questionText: q.question_text,
           questionType: q.question_type,
@@ -74,7 +74,7 @@ export default function QuestionsPage() {
       }
     } catch (error: any) {
       console.error('Error fetching data:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch test data');
+      toast.error(error.message || 'Failed to fetch test data');
       router.push('/educator/dashboard/tests');
     } finally {
       setLoading(false);
@@ -185,24 +185,22 @@ export default function QuestionsPage() {
       };
 
       if (editingIndex !== null && questions[editingIndex].id) {
-        const response = await axios.put(
-          `/api/questions/${questions[editingIndex].id}`,
-          payload,
-          { withCredentials: true }
+        const response = await fetchApi.put<typeof payload, { success: boolean; message: string }>(
+          `api/questions/${questions[editingIndex].id}`,
+          payload
         );
         
-        if (response.data.success) {
+        if (response.success) {
           toast.success('Question updated successfully');
           await fetchTestAndQuestions();
         }
       } else {
-        const response = await axios.post(
-          '/api/questions/add',
-          payload,
-          { withCredentials: true }
+        const response = await fetchApi.post<typeof payload, { success: boolean; message: string }>(
+          'api/questions/add',
+          payload
         );
         
-        if (response.data.success) {
+        if (response.success) {
           toast.success('Question added successfully');
           await fetchTestAndQuestions();
         }
@@ -211,7 +209,7 @@ export default function QuestionsPage() {
       resetForm();
     } catch (error: any) {
       console.error('Error saving question:', error);
-      toast.error(error.response?.data?.message || 'Failed to save question');
+      toast.error(error.message || 'Failed to save question');
     }
   };
 
@@ -225,17 +223,18 @@ export default function QuestionsPage() {
     if (!confirm('Are you sure you want to delete this question?')) return;
 
     try {
-      const response = await axios.delete(`/api/questions/${questionId}`, {
-        withCredentials: true,
-      });
+      const response = await fetchApi.delete<{}, { success: boolean; message: string }>(
+        `api/questions/${questionId}`,
+        {}
+      );
       
-      if (response.data.success) {
+      if (response.success) {
         toast.success('Question deleted successfully');
         await fetchTestAndQuestions();
       }
     } catch (error: any) {
       console.error('Error deleting question:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete question');
+      toast.error(error.message || 'Failed to delete question');
     }
   };
 
@@ -250,19 +249,18 @@ export default function QuestionsPage() {
     }
 
     try {
-      const response = await axios.put(
-        `/api/tests/${testId}/publish`,
-        {},
-        { withCredentials: true }
+      const response = await fetchApi.put<{}, { success: boolean; message: string }>(
+        `api/tests/${testId}/publish`,
+        {}
       );
       
-      if (response.data.success) {
+      if (response.success) {
         toast.success('Test published successfully!');
         router.push('/educator/dashboard/tests');
       }
     } catch (error: any) {
       console.error('Error publishing test:', error);
-      toast.error(error.response?.data?.message || 'Failed to publish test');
+      toast.error(error.message || 'Failed to publish test');
     }
   };
 

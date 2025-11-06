@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import { fetchApi } from '@/lib/doFetch';
 
 export default function CreateTestPage() {
   const router = useRouter();
@@ -33,19 +33,18 @@ export default function CreateTestPage() {
 
     try {
       setLoading(true);
-      const response = await axios.post(
-        '/api/tests/create',
-        formData,
-        { withCredentials: true }
+      const response = await fetchApi.post<typeof formData, { success: boolean; message: string; data: { id: number } }>(
+        'api/tests/create',
+        formData
       );
       
-      if (response.data.success) {
+      if (response.success) {
         toast.success('Test created successfully!');
-        router.push(`/educator/dashboard/tests/${response.data.data.id}/instructions`);
+        router.push(`/educator/dashboard/tests/${response.data.id}/instructions`);
       }
     } catch (error: any) {
       console.error('Error creating test:', error);
-      toast.error(error.response?.data?.message || 'Failed to create test');
+      toast.error(error.message || 'Failed to create test');
     } finally {
       setLoading(false);
     }
