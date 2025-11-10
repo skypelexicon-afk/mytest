@@ -84,10 +84,10 @@ export default function StudentTestsPage() {
     } catch (error: any) {
       // If no ongoing session, go to instructions
       if (error.response?.status === 404) {
-        router.push(`/student/dashboard/tests/${testId}/instructions`);
+        router.push(`/student/dashboard/tests/test-instructions/${testId}`);
       } else {
         console.error('Error checking test status:', error);
-        router.push(`/student/dashboard/tests/${testId}/instructions`);
+        router.push(`/student/dashboard/tests/test-instructions/${testId}`);
       }
     }
   };
