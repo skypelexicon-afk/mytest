@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Clock, BookOpen, FileText, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import ReactMarkdown from 'react-markdown';
 
 interface Test {
@@ -22,6 +22,12 @@ interface Test {
   status: string;
 }
 
+interface ApiResponse {
+  success: boolean;
+  data: Test;
+  message?: string;
+}
+
 export default function TestInstructionsPage() {
   const router = useRouter();
   const params = useParams();
@@ -32,28 +38,29 @@ export default function TestInstructionsPage() {
   const [agreed, setAgreed] = useState(false);
   const [starting, setStarting] = useState(false);
 
-  useEffect(() => {
-    fetchTestInstructions();
-  }, [testId]);
-
-  const fetchTestInstructions = async () => {
+  const fetchTestInstructions = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/exam/test/${testId}/instructions`, {
+      const response = await axios.get<ApiResponse>(`/api/exam/test/${testId}/instructions`, {
         withCredentials: true,
       });
 
       if (response.data.success) {
         setTest(response.data.data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching test instructions:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch test instructions');
+      const axiosError = error as AxiosError<ApiResponse>;
+      toast.error(axiosError.response?.data?.message || 'Failed to fetch test instructions');
       router.push('/student/dashboard/tests');
     } finally {
       setLoading(false);
     }
-  };
+  }, [testId, router]);
+
+  useEffect(() => {
+    fetchTestInstructions();
+  }, [fetchTestInstructions]);
 
   const handleStartExam = async () => {
     if (!agreed) {
@@ -63,22 +70,22 @@ export default function TestInstructionsPage() {
 
     try {
       setStarting(true);
-      const response = await axios.post(
+      const response = await axios.post<ApiResponse>(
         '/api/exam/start',
         { testId: parseInt(testId) },
         { withCredentials: true }
       );
 
       if (response.data.success) {
-        const sessionId = response.data.data.session.id;
-        // Store exam data in sessionStorage for the attempt page
+        const sessionId = response.data.data.id;
         sessionStorage.setItem(`exam_session_${sessionId}`, JSON.stringify(response.data.data));
         toast.success('Exam started! Good luck!');
         router.push(`/student/dashboard/tests/${sessionId}/attempt`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error starting exam:', error);
-      toast.error(error.response?.data?.message || 'Failed to start exam');
+      const axiosError = error as AxiosError<ApiResponse>;
+      toast.error(axiosError.response?.data?.message || 'Failed to start exam');
     } finally {
       setStarting(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,15 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, XCircle, Clock, Trophy, TrendingUp, Home } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 interface QuestionResult {
   question_id: number;
   question_text: string;
   question_type: string;
   options: string[];
-  student_answer: any;
-  correct_answers: any[];
+  student_answer: string | number | string[] | null;
+  correct_answers: (string | number)[];
   explanation?: string;
   is_correct: boolean;
   marks: number;
@@ -54,6 +54,12 @@ interface ExamResult {
   questions: QuestionResult[];
 }
 
+interface ApiResponse {
+  success: boolean;
+  data: ExamResult;
+  message?: string;
+}
+
 export default function TestResultPage() {
   const router = useRouter();
   const params = useParams();
@@ -62,28 +68,29 @@ export default function TestResultPage() {
   const [result, setResult] = useState<ExamResult | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchResult();
-  }, [sessionId]);
-
-  const fetchResult = async () => {
+  const fetchResult = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/exam/session/${sessionId}/result`, {
+      const response = await axios.get<ApiResponse>(`/api/exam/session/${sessionId}/result`, {
         withCredentials: true,
       });
 
       if (response.data.success) {
         setResult(response.data.data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching result:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch result');
+      const axiosError = error as AxiosError<ApiResponse>;
+      toast.error(axiosError.response?.data?.message || 'Failed to fetch result');
       router.push('/student/dashboard/tests');
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId, router]);
+
+  useEffect(() => {
+    fetchResult();
+  }, [fetchResult]);
 
   if (loading) {
     return (

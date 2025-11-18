@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Clock, Award, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 interface Result {
   session_id: number;
@@ -25,6 +25,12 @@ interface Result {
   time_taken: number;
 }
 
+interface ApiResponse {
+  success: boolean;
+  data: Result;
+  message?: string;
+}
+
 export default function TestResultPage() {
   const router = useRouter();
   const params = useParams();
@@ -32,28 +38,29 @@ export default function TestResultPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchResult();
-  }, [sessionId]);
-
-  const fetchResult = async () => {
+  const fetchResult = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/exam/session/${sessionId}/result`, {
+      const response = await axios.get<ApiResponse>(`/api/exam/session/${sessionId}/result`, {
         withCredentials: true,
       });
 
       if (response.data.success) {
         setResult(response.data.data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching result:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch result');
+      const axiosError = error as AxiosError<ApiResponse>;
+      toast.error(axiosError.response?.data?.message || 'Failed to fetch result');
       router.push('/student/dashboard/tests');
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId, router]);
+
+  useEffect(() => {
+    fetchResult();
+  }, [fetchResult]);
 
   if (loading) {
     return (
@@ -222,7 +229,7 @@ export default function TestResultPage() {
               <div className="text-2xl mb-2">🎉</div>
               <h3 className="text-lg font-semibold text-green-600 mb-2">Excellent Performance!</h3>
               <p className="text-sm text-muted-foreground">
-                You've scored above 75%. Keep up the great work!
+                You&apos;ve scored above 75%. Keep up the great work!
               </p>
             </div>
           ) : parseFloat(percentage) >= 50 ? (
@@ -238,7 +245,7 @@ export default function TestResultPage() {
               <div className="text-2xl mb-2">💪</div>
               <h3 className="text-lg font-semibold text-orange-600 mb-2">Keep Trying!</h3>
               <p className="text-sm text-muted-foreground">
-                Don't give up! Review the material and try again.
+                Don&apos;t give up! Review the material and try again.
               </p>
             </div>
           )}

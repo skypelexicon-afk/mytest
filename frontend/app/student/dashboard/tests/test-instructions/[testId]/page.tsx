@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Clock, BookOpen, Trophy, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import ReactMarkdown from 'react-markdown';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -34,11 +34,7 @@ export default function TestInstructionsPage() {
   const [agreed, setAgreed] = useState(false);
   const [starting, setStarting] = useState(false);
 
-  useEffect(() => {
-    fetchTestInstructions();
-  }, [testId]);
-
-  const fetchTestInstructions = async () => {
+  const fetchTestInstructions = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_URL}/api/exam/test/${testId}/instructions`, {
@@ -48,14 +44,19 @@ export default function TestInstructionsPage() {
       if (response.data.success) {
         setTest(response.data.data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching test instructions:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch test instructions');
+      const axiosError = error as AxiosError;
+      toast.error((axiosError.response?.data as { message?: string })?.message || 'Failed to fetch test instructions');
       router.push('/student/dashboard/tests');
     } finally {
       setLoading(false);
     }
-  };
+  }, [testId, router]);
+
+  useEffect(() => {
+    fetchTestInstructions();
+  }, [fetchTestInstructions]);
 
   const handleStartExam = async () => {
     if (!agreed) {
@@ -76,9 +77,10 @@ export default function TestInstructionsPage() {
         toast.success('Exam started successfully!');
         router.push(`/student/dashboard/tests/${sessionId}/attempt`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error starting exam:', error);
-      toast.error(error.response?.data?.message || 'Failed to start exam');
+      const axiosError = error as AxiosError;
+      toast.error((axiosError.response?.data as { message?: string })?.message || 'Failed to start exam');
     } finally {
       setStarting(false);
     }

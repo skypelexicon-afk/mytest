@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Clock, AlertCircle, CheckCircle2, Bookmark } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -29,7 +29,7 @@ interface Question {
   id: number;
   question_text: string;
   question_type: string;
-  options: any;
+  options: string[];
   marks: number;
   negative_marks: number;
   order: number;
@@ -48,8 +48,8 @@ interface Session {
   id: number;
   test_id: number;
   student_id: number;
-  answers: any;
-  marked_for_review: any;
+  answers: Record<string, string | number | string[]>;
+  marked_for_review: number[];
   start_time: string;
   status: string;
 }
@@ -65,7 +65,7 @@ export default function ExamAttemptPage() {
   const [test, setTest] = useState<Test | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [answers, setAnswers] = useState<Record<string, string | number | string[]>>({});
   const [markedForReview, setMarkedForReview] = useState<number[]>([]);
   const [visitedQuestions, setVisitedQuestions] = useState<Set<number>>(new Set());
   const [timeRemaining, setTimeRemaining] = useState(0);

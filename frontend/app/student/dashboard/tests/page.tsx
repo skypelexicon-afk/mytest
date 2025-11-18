@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Clock, BookOpen, FileText, Play, CheckCircle, AlertCircle, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -61,9 +61,10 @@ export default function StudentTestsPage() {
       if (attemptsResponse.data.success) {
         setMyAttempts(attemptsResponse.data.data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching tests:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch tests');
+      const axiosError = error as AxiosError;
+      toast.error((axiosError.response?.data as { message?: string })?.message || 'Failed to fetch tests');
     } finally {
       setLoading(false);
     }
@@ -81,9 +82,10 @@ export default function StudentTestsPage() {
         const sessionId = ongoingResponse.data.data.session.id;
         router.push(`/student/dashboard/tests/${sessionId}/attempt`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If no ongoing session, go to instructions
-      if (error.response?.status === 404) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
         router.push(`/student/dashboard/tests/test-instructions/${testId}`);
       } else {
         console.error('Error checking test status:', error);

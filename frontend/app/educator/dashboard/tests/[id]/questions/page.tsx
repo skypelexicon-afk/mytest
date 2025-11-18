@@ -13,10 +13,12 @@ import { ArrowLeft, Plus, Trash2, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/doFetch';
 
+type QuestionType = 'mcq' | 'multiple_correct' | 'true_false' | 'numerical';
+
 interface Question {
   id?: number;
   questionText: string;
-  questionType: 'mcq' | 'multiple_correct' | 'true_false' | 'numerical';
+  questionType: QuestionType;
   options: string[];
   correctAnswers: (number | string)[];
   marks: number;
@@ -24,12 +26,59 @@ interface Question {
   explanation: string;
 }
 
+interface Test {
+  id: number;
+  name: string;
+  subject: string;
+  duration: number;
+  total_marks: number;
+  num_questions: number;
+  status: string;
+}
+
+interface ApiQuestion {
+  id: number;
+  question_text: string;
+  question_type: QuestionType;
+  options: string[] | null;
+  correct_answers: (number | string)[] | number | string;
+  marks: number;
+  negative_marks: number;
+  explanation: string | null;
+}
+
+interface TestApiResponse {
+  success: boolean;
+  data: Test;
+}
+
+interface QuestionsApiResponse {
+  success: boolean;
+  data: ApiQuestion[];
+}
+
+interface SaveQuestionPayload {
+  testId: number;
+  questionText: string;
+  questionType: QuestionType;
+  options: string[] | null;
+  correctAnswers: (number | string)[];
+  marks: number;
+  negativeMarks: number;
+  explanation: string;
+}
+
+interface SaveQuestionResponse {
+  success: boolean;
+  message: string;
+}
+
 export default function QuestionsPage() {
   const router = useRouter();
   const params = useParams();
   const testId = params.id as string;
   const [loading, setLoading] = useState(true);
-  const [test, setTest] = useState<any>(null);
+  const [test, setTest] = useState<Test | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<Question>({
@@ -51,8 +100,8 @@ export default function QuestionsPage() {
     try {
       setLoading(true);
       const [testRes, questionsRes] = await Promise.all([
-        fetchApi.get<{ success: boolean; data: any }>(`api/tests/${testId}`),
-        fetchApi.get<{ success: boolean; data: any[] }>(`api/questions/test/${testId}`),
+        fetchApi.get<TestApiResponse>(`api/tests/${testId}`),
+        fetchApi.get<QuestionsApiResponse>(`api/questions/test/${testId}`),
       ]);
       
       if (testRes.success) {
@@ -60,7 +109,7 @@ export default function QuestionsPage() {
       }
       
       if (questionsRes.success) {
-        const mappedQuestions = questionsRes.data.map((q: any) => ({
+        const mappedQuestions: Question[] = questionsRes.data.map((q: ApiQuestion) => ({
           id: q.id,
           questionText: q.question_text,
           questionType: q.question_type,
@@ -72,9 +121,10 @@ export default function QuestionsPage() {
         }));
         setQuestions(mappedQuestions);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching data:', error);
-      toast.error(error.message || 'Failed to fetch test data');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch test data';
+      toast.error(errorMessage);
       router.push('/educator/dashboard/tests');
     } finally {
       setLoading(false);
@@ -83,7 +133,7 @@ export default function QuestionsPage() {
 
   const handleQuestionTypeChange = (type: string) => {
     let newOptions = currentQuestion.options;
-    let newCorrectAnswers: (number | string)[] = [];
+    const newCorrectAnswers: (number | string)[] = [];
 
     if (type === 'true_false') {
       newOptions = ['True', 'False'];
@@ -95,7 +145,7 @@ export default function QuestionsPage() {
 
     setCurrentQuestion({
       ...currentQuestion,
-      questionType: type as any,
+      questionType: type as QuestionType,
       options: newOptions,
       correctAnswers: newCorrectAnswers,
     });
@@ -173,7 +223,7 @@ export default function QuestionsPage() {
     if (!validateQuestion()) return;
 
     try {
-      const payload = {
+      const payload: SaveQuestionPayload = {
         testId: parseInt(testId),
         questionText: currentQuestion.questionText,
         questionType: currentQuestion.questionType,
@@ -185,7 +235,7 @@ export default function QuestionsPage() {
       };
 
       if (editingIndex !== null && questions[editingIndex].id) {
-        const response = await fetchApi.put<typeof payload, { success: boolean; message: string }>(
+        const response = await fetchApi.put<SaveQuestionPayload, SaveQuestionResponse>(
           `api/questions/${questions[editingIndex].id}`,
           payload
         );
@@ -195,7 +245,7 @@ export default function QuestionsPage() {
           await fetchTestAndQuestions();
         }
       } else {
-        const response = await fetchApi.post<typeof payload, { success: boolean; message: string }>(
+        const response = await fetchApi.post<SaveQuestionPayload, SaveQuestionResponse>(
           'api/questions/add',
           payload
         );
@@ -207,9 +257,10 @@ export default function QuestionsPage() {
       }
 
       resetForm();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving question:', error);
-      toast.error(error.message || 'Failed to save question');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save question';
+      toast.error(errorMessage);
     }
   };
 
@@ -223,7 +274,7 @@ export default function QuestionsPage() {
     if (!confirm('Are you sure you want to delete this question?')) return;
 
     try {
-      const response = await fetchApi.delete<{}, { success: boolean; message: string }>(
+      const response = await fetchApi.delete<Record<string, never>, SaveQuestionResponse>(
         `api/questions/${questionId}`,
         {}
       );
@@ -232,9 +283,10 @@ export default function QuestionsPage() {
         toast.success('Question deleted successfully');
         await fetchTestAndQuestions();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting question:', error);
-      toast.error(error.message || 'Failed to delete question');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete question';
+      toast.error(errorMessage);
     }
   };
 
@@ -244,12 +296,12 @@ export default function QuestionsPage() {
       return;
     }
 
-    if (!confirm('Are you sure you want to publish this test? You won\'t be able to edit it after publishing.')) {
+    if (!confirm('Are you sure you want to publish this test? You won&apos;t be able to edit it after publishing.')) {
       return;
     }
 
     try {
-      const response = await fetchApi.put<{}, { success: boolean; message: string }>(
+      const response = await fetchApi.put<Record<string, never>, SaveQuestionResponse>(
         `api/tests/${testId}/publish`,
         {}
       );
@@ -258,9 +310,10 @@ export default function QuestionsPage() {
         toast.success('Test published successfully!');
         router.push('/educator/dashboard/tests');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error publishing test:', error);
-      toast.error(error.message || 'Failed to publish test');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to publish test';
+      toast.error(errorMessage);
     }
   };
 

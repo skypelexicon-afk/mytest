@@ -21,6 +21,16 @@ interface Test {
   created_at: string;
 }
 
+interface TestsApiResponse {
+  success: boolean;
+  data: Test[];
+}
+
+interface DeleteApiResponse {
+  success: boolean;
+  message: string;
+}
+
 export default function EducatorTestsPage() {
   const router = useRouter();
   const [tests, setTests] = useState<Test[]>([]);
@@ -33,14 +43,15 @@ export default function EducatorTestsPage() {
   const fetchTests = async () => {
     try {
       setLoading(true);
-      const response = await fetchApi.get<{ success: boolean; data: Test[] }>('api/tests/my-tests');
+      const response = await fetchApi.get<TestsApiResponse>('api/tests/my-tests');
       
       if (response.success) {
         setTests(response.data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching tests:', error);
-      toast.error(error.message || 'Failed to fetch tests');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch tests';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -52,7 +63,7 @@ export default function EducatorTestsPage() {
     }
 
     try {
-      const response = await fetchApi.delete<{}, { success: boolean; message: string }>(
+      const response = await fetchApi.delete<Record<string, never>, DeleteApiResponse>(
         `api/tests/${testId}`,
         {}
       );
@@ -61,9 +72,10 @@ export default function EducatorTestsPage() {
         toast.success('Test deleted successfully');
         fetchTests(); // Refresh list
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting test:', error);
-      toast.error(error.message || 'Failed to delete test');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete test';
+      toast.error(errorMessage);
     }
   };
 

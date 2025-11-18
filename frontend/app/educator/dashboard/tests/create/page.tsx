@@ -11,10 +11,25 @@ import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/doFetch';
 
+interface CreateTestFormData {
+  name: string;
+  subject: string;
+  duration: string;
+  totalMarks: string;
+  numQuestions: string;
+  description: string;
+}
+
+interface CreateTestResponse {
+  success: boolean;
+  message: string;
+  data: { id: number };
+}
+
 export default function CreateTestPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateTestFormData>({
     name: '',
     subject: '',
     duration: '',
@@ -33,7 +48,7 @@ export default function CreateTestPage() {
 
     try {
       setLoading(true);
-      const response = await fetchApi.post<typeof formData, { success: boolean; message: string; data: { id: number } }>(
+      const response = await fetchApi.post<CreateTestFormData, CreateTestResponse>(
         'api/tests/create',
         formData
       );
@@ -42,9 +57,10 @@ export default function CreateTestPage() {
         toast.success('Test created successfully!');
         router.push(`/educator/dashboard/tests/${response.data.id}/instructions`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating test:', error);
-      toast.error(error.message || 'Failed to create test');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create test';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
