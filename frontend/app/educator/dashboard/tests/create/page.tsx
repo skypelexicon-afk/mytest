@@ -55,7 +55,7 @@ export default function CreateTestPage() {
       
       if (response.success) {
         toast.success('Test created successfully!');
-        router.push(`/educator/dashboard/tests/${response.data.id}/instructions`);
+        router.push(`/educator/dashboard/tests/${response.data.id}/questions`);
       }
     } catch (error: unknown) {
       console.error('Error creating test:', error);

@@ -133,16 +133,17 @@ export default function ExamAttemptPage() {
         const remaining = Math.max(0, endTime - now);
         setTimeRemaining(Math.floor(remaining / 1000));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching session details:', error);
-      toast.error(error.response?.data?.message || 'Failed to load exam session');
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError.response?.data?.message || 'Failed to load exam session');
       router.push('/student/dashboard/tests');
     } finally {
       setLoading(false);
     }
   };
 
-  const saveAnswer = async (questionId: number, answer: any, marked: boolean) => {
+  const saveAnswer = async (questionId: number, answer: string | number | string[] | undefined, marked: boolean) => {
     try {
       setSaving(true);
       await axios.put(
@@ -154,15 +155,16 @@ export default function ExamAttemptPage() {
         },
         { withCredentials: true }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving answer:', error);
-      toast.error('Failed to save answer');
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError.response?.data?.message || 'Failed to save answer');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAnswerChange = (value: any) => {
+  const handleAnswerChange = (value: string | number | string[]) => {
     const questionId = questions[currentQuestionIndex].id;
     const newAnswers = { ...answers, [questionId]: value };
     setAnswers(newAnswers);
@@ -211,9 +213,10 @@ export default function ExamAttemptPage() {
         toast.success('Exam submitted successfully!');
         router.push(`/student/dashboard/tests/${sessionId}/result`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting exam:', error);
-      toast.error(error.response?.data?.message || 'Failed to submit exam');
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError.response?.data?.message || 'Failed to submit exam');
     } finally {
       setSubmitting(false);
       setShowSubmitDialog(false);

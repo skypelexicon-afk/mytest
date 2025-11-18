@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Clock, Flag, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { Badge } from '@/components/ui/badge';
 
 interface Question {
@@ -37,7 +37,7 @@ interface ExamSession {
   id: number;
   test_id: number;
   student_id: number;
-  answers: Record<string, any>;
+  answers: Record<string, string | number | string[] | null>;
   marked_for_review: number[];
   status: string;
   start_time: string;
@@ -61,7 +61,7 @@ export default function TestAttemptPage() {
   const [test, setTest] = useState<Test | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [answers, setAnswers] = useState<Record<string, string | number | string[] | null>>({});
   const [markedForReview, setMarkedForReview] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -128,7 +128,7 @@ export default function TestAttemptPage() {
       // If no stored data, redirect back to tests
       toast.error('Session not found. Please start the test again.');
       router.push('/student/dashboard/tests');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading exam session:', error);
       toast.error('Failed to load exam session');
       router.push('/student/dashboard/tests');
@@ -140,7 +140,7 @@ export default function TestAttemptPage() {
     await handleSubmitExam(true);
   };
 
-  const saveAnswer = async (questionId: number, answer: any, markForReview: boolean = false) => {
+  const saveAnswer = async (questionId: number, answer: string | number | string[] | null, markForReview: boolean = false) => {
     try {
       setSaving(true);
       await axios.put(
@@ -152,7 +152,7 @@ export default function TestAttemptPage() {
         },
         { withCredentials: true }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving answer:', error);
       toast.error('Failed to save answer. Please try again.');
     } finally {
@@ -160,7 +160,7 @@ export default function TestAttemptPage() {
     }
   };
 
-  const handleAnswerChange = (questionId: number, answer: any) => {
+  const handleAnswerChange = (questionId: number, answer: string | number | string[] | null) => {
     setAnswers((prev) => ({
       ...prev,
       [questionId]: answer,
@@ -218,9 +218,10 @@ export default function TestAttemptPage() {
         toast.success('Exam submitted successfully!');
         router.push(`/student/dashboard/tests/${sessionId}/result`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting exam:', error);
-      toast.error(error.response?.data?.message || 'Failed to submit exam');
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosError.response?.data?.message || 'Failed to submit exam');
     } finally {
       setSubmitting(false);
     }

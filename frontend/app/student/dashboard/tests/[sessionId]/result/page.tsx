@@ -17,7 +17,7 @@ import {
   Target
 } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -25,9 +25,9 @@ interface QuestionResult {
   question_id: number;
   question_text: string;
   question_type: string;
-  options: any;
-  student_answer: any;
-  correct_answers: any;
+  options: string[] | null;
+  student_answer: string | number | string[] | number[] | undefined;
+  correct_answers: (string | number)[];
   explanation?: string;
   is_correct: boolean;
   marks: number;
@@ -81,9 +81,10 @@ export default function ExamResultPage() {
       if (response.data.success) {
         setResultData(response.data.data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching result:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch result');
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError.response?.data?.message || 'Failed to fetch result');
       router.push('/student/dashboard/tests');
     } finally {
       setLoading(false);
