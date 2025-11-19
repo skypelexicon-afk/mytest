@@ -65,7 +65,7 @@ export default function ExamAttemptPage() {
   const [test, setTest] = useState<Test | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string | number | string[]>>({});
+  const [answers, setAnswers] = useState<Record<string, string | number | string[] | number[]>>({});
   const [markedForReview, setMarkedForReview] = useState<number[]>([]);
   const [visitedQuestions, setVisitedQuestions] = useState<Set<number>>(new Set());
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -143,7 +143,7 @@ export default function ExamAttemptPage() {
     }
   };
 
-  const saveAnswer = async (questionId: number, answer: string | number | string[] | undefined, marked: boolean) => {
+  const saveAnswer = async (questionId: number, answer: string | number | string[] | number[] | undefined, marked: boolean) => {
     try {
       setSaving(true);
       await axios.put(
@@ -164,7 +164,7 @@ export default function ExamAttemptPage() {
     }
   };
 
-  const handleAnswerChange = (value: string | number | string[]) => {
+  const handleAnswerChange = (value: string | number | string[] | number[]) => {
     const questionId = questions[currentQuestionIndex].id;
     const newAnswers = { ...answers, [questionId]: value };
     setAnswers(newAnswers);
@@ -308,7 +308,7 @@ export default function ExamAttemptPage() {
       );
     } else if (question.question_type === 'multiple_correct') {
       const options = Array.isArray(question.options) ? question.options : [];
-      const selectedOptions = Array.isArray(currentAnswer) ? currentAnswer : [];
+      const selectedOptions = Array.isArray(currentAnswer) ? currentAnswer.map(item => typeof item === 'number' ? item : parseInt(String(item))) : [];
       
       return (
         <div className="space-y-3">
@@ -363,7 +363,7 @@ export default function ExamAttemptPage() {
             id="numerical-answer"
             type="number"
             step="any"
-            value={currentAnswer || ''}
+            value={Array.isArray(currentAnswer) ? '' : currentAnswer || ''}
             onChange={(e) => handleAnswerChange(e.target.value)}
             placeholder="Enter numerical value"
             className="max-w-md text-lg p-3"

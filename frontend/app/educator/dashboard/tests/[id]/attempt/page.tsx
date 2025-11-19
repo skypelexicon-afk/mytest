@@ -311,7 +311,7 @@ export default function TestAttemptPage() {
               <div className="space-y-4">
                 {currentQuestion.question_type === 'mcq' || currentQuestion.question_type === 'true_false' ? (
                   <RadioGroup
-                    value={currentAnswer}
+                    value={typeof currentAnswer === 'string' || typeof currentAnswer === 'number' ? String(currentAnswer) : undefined}
                     onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
                   >
                     {currentQuestion.options.map((option, index) => (

@@ -153,9 +153,11 @@ export default function TestInstructionsPage() {
                 Please read all instructions carefully before starting the exam. Once started, the timer will begin and cannot be paused.
               </p>
             </div>
-            <ReactMarkdown className="text-sm text-muted-foreground">
-              {test.instructions || ''}
-            </ReactMarkdown>
+            <div className="text-sm text-muted-foreground">
+              <ReactMarkdown>
+                {test.instructions || ''}
+              </ReactMarkdown>
+            </div>
           </div>
 
           <div className="border-t pt-6">

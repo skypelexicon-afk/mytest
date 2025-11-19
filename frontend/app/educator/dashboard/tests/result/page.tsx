@@ -110,11 +110,13 @@ export default function TestResultPage() {
 
   const getAnswerDisplay = (question: QuestionResult) => {
     if (question.question_type === 'mcq' || question.question_type === 'true_false') {
-      const studentAnswerIndex = parseInt(question.student_answer);
-      const correctAnswerIndex = parseInt(question.correct_answers[0]);
+      const studentAnswerIndex = question.student_answer !== null && question.student_answer !== undefined 
+        ? parseInt(String(question.student_answer)) 
+        : -1;
+      const correctAnswerIndex = parseInt(String(question.correct_answers[0]));
       
       return {
-        student: question.options[studentAnswerIndex] || 'Not answered',
+        student: studentAnswerIndex >= 0 ? (question.options[studentAnswerIndex] || 'Not answered') : 'Not answered',
         correct: question.options[correctAnswerIndex],
       };
     } else if (question.question_type === 'multiple_correct') {
@@ -122,7 +124,7 @@ export default function TestResultPage() {
         ? question.student_answer.map((idx: string) => question.options[parseInt(idx)]).join(', ')
         : 'Not answered';
       const correctAnswers = question.correct_answers
-        .map((idx) => question.options[parseInt(idx)])
+        .map((idx) => question.options[parseInt(String(idx))])
         .join(', ');
       
       return {
@@ -294,8 +296,8 @@ interface QuestionCardProps {
 function QuestionCard({ question, index }: QuestionCardProps) {
   const getAnswerDisplay = (question: QuestionResult) => {
     if (question.question_type === 'mcq' || question.question_type === 'true_false') {
-      const studentAnswerIndex = question.student_answer !== null ? parseInt(question.student_answer) : null;
-      const correctAnswerIndex = parseInt(question.correct_answers[0]);
+      const studentAnswerIndex = question.student_answer !== null ? parseInt(String(question.student_answer)) : null;
+      const correctAnswerIndex = parseInt(String(question.correct_answers[0]));
       
       return {
         student: studentAnswerIndex !== null ? question.options[studentAnswerIndex] : 'Not answered',
@@ -306,7 +308,7 @@ function QuestionCard({ question, index }: QuestionCardProps) {
         ? question.student_answer.map((idx: string) => question.options[parseInt(idx)]).join(', ')
         : 'Not answered';
       const correctAnswers = question.correct_answers
-        .map((idx) => question.options[parseInt(idx)])
+        .map((idx) => question.options[parseInt(String(idx))])
         .join(', ');
       
       return {

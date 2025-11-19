@@ -94,17 +94,23 @@ export default function ExamResultPage() {
   const getAnswerDisplay = (question: QuestionResult) => {
     if (question.question_type === 'mcq' || question.question_type === 'true_false') {
       const options = Array.isArray(question.options) ? question.options : [];
+      const studentAnswerIndex = typeof question.student_answer === 'number' || typeof question.student_answer === 'string' 
+        ? Number(question.student_answer) 
+        : undefined;
+      const correctAnswerIndex = typeof question.correct_answers[0] === 'number' || typeof question.correct_answers[0] === 'string'
+        ? Number(question.correct_answers[0])
+        : 0;
       return {
-        student: question.student_answer !== undefined ? options[question.student_answer] : 'Not Answered',
-        correct: options[question.correct_answers[0]],
+        student: studentAnswerIndex !== undefined ? options[studentAnswerIndex] : 'Not Answered',
+        correct: options[correctAnswerIndex],
       };
     } else if (question.question_type === 'multiple_correct') {
       const options = Array.isArray(question.options) ? question.options : [];
       const studentAnswers = Array.isArray(question.student_answer) 
-        ? question.student_answer.map((idx: number) => options[idx]).join(', ')
+        ? question.student_answer.map((idx) => options[Number(idx)]).join(', ')
         : 'Not Answered';
       const correctAnswers = Array.isArray(question.correct_answers)
-        ? question.correct_answers.map((idx: number) => options[idx]).join(', ')
+        ? question.correct_answers.map((idx) => options[Number(idx)]).join(', ')
         : '';
       return {
         student: studentAnswers,

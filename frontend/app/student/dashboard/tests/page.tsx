@@ -156,7 +156,7 @@ export default function StudentTestsPage() {
                 <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-xl font-semibold mb-2">No attempts yet</h3>
                 <p className="text-muted-foreground">
-                  You haven't attempted any tests yet. Start with available tests!
+                  You haven&apos;t attempted any tests yet. Start with available tests!
                 </p>
               </CardContent>
             </Card>
